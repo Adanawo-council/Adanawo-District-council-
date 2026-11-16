@@ -15,7 +15,6 @@
   $('#sprites').innerHTML = S.svg;
   $('#siteName').textContent = S.name;
   $('#siteMotto').textContent = S.motto;
-  $('#credit').textContent = S.creditLine;
   document.title = S.name;
 
   const ROUTES = [['home', 'Home'], ['leaders', 'Leaders'], ['places', 'Places'], ['about', 'About']];
