@@ -31,6 +31,7 @@ window.SITE = {
     crown:         { label: 'Crown',                  icon: 'crown' },
     red_bead:      { label: 'Gago',                   icon: 'bead' },
     gold_ribbon:   { label: 'District Council',       icon: 'ribbon' },
+    crown_seal:    { label: 'Crown and seal',         icon: 'seal', crown: true },
     seal:          { label: 'Office holder',          icon: 'seal' },
     chairman_seal: { label: 'Local Government Chairman', icon: 'wreath' },
     none:          { label: '',                       icon: null }

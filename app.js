@@ -58,7 +58,7 @@
   // ---------- people cards ----------
   function personCard(p) {
     const m = S.marks[p.mark] || S.marks.none; const img = photoUrl(p.photo_path);
-    const badge = m.icon ? `<span class="badge" title="${esc(m.label)}">${ico(m.icon)}</span>` : '';
+    const badge = (m.crown ? `<span class="crownTop">${ico('crown')}</span>` : '') + (m.icon ? `<span class="badge" title="${esc(m.label)}">${ico(m.icon)}</span>` : '');
     return `<article class="card person mark-${esc(p.mark)}"><div class="photo">${img ? `<img src="${esc(img)}" alt="${esc(p.full_name)}" loading="lazy">` : ico('person', 'p')}${badge}</div>
       <h3>${esc(p.full_name)}</h3><p class="pt">${esc(p.title || '')}</p>${p.office ? `<p class="off">${esc(p.office)}</p>` : ''}${p.is_late ? '<p class="late">Late</p>' : ''}</article>`;
   }
@@ -247,6 +247,8 @@
         <label for="noteSigned">Signed</label><input type="text" id="noteSigned" value="${esc(st.settings.note_signed || '')}"><div class="row"><button class="btn" data-act="savenote">Save the Note</button></div></div>
       <div class="card" style="margin-top:14px"><h3>Youth pitch day</h3><p class="lead" style="margin:4px 0 8px">The pitch window is <b>${open ? 'OPEN' : 'closed'}</b>. While it is open, anyone signed in can share a pitch.</p>
         <button class="btn ${open ? 'alt' : ''}" data-act="togglepitch">${open ? 'Close the window' : 'Open the window'}</button></div>
+      <div class="card" style="margin-top:14px"><h3>Backup</h3><p class="lead" style="margin:4px 0 8px">Download a copy of the people list and the main content. Keep it safe. Do this once a month.</p>
+        <div class="row" style="margin:0"><button class="btn alt" data-act="bkcsv">People list (spreadsheet)</button><button class="btn alt" data-act="bkjson">Everything (backup file)</button></div></div>
       <div class="card" style="margin-top:14px"><h3>People</h3><p class="lead" style="margin:4px 0 8px">Search a person. Make a code so they can claim their profile, add their picture, or give them a role.</p>
         <input type="search" id="pSearch" placeholder="Search by name or place"><div id="pList"></div></div>
       ${(rp.data || []).length ? `<div class="card" style="margin-top:14px"><h3>Reports</h3>${rp.data.map((r) => `<div class="admin-row"><div><b>${esc(r.target_type)}</b><small>${esc(r.reason || '')} · ${fmtDate(r.created_at)}</small></div><div class="row" style="margin:0"><button class="btn small" data-act="hide" data-id="${r.id}" data-type="${esc(r.target_type)}" data-target="${r.target_id}">Hide it</button><button class="btn alt small" data-act="dismiss" data-id="${r.id}">Dismiss</button></div></div>`).join('')}</div>` : ''}
@@ -276,6 +278,19 @@
     else if (act === 'hide') { const t = { post: 'posts', comment: 'comments', listing: 'market_listings' }[el.dataset.type];
       const { error } = await sb.from(t).update({ hidden: true }).eq('id', el.dataset.target); if (error) return toast(error.message);
       await sb.from('reports').update({ resolved: true }).eq('id', id); toast('Hidden'); await render(true); }
+    else if (act === 'bkcsv' || act === 'bkjson') {
+      const names = act === 'bkcsv' ? ['people', 'people_private'] : ['areas', 'villages', 'people', 'people_private', 'site_settings', 'history_entries', 'stories', 'story_rota', 'meetings', 'minutes', 'markets', 'posts'];
+      const out = {}; for (const n of names) { const r = await sb.from(n).select('*'); if (r.error) return toast(n + ': ' + r.error.message); out[n] = r.data; }
+      let blob, name; const day = new Date().toISOString().slice(0, 10);
+      if (act === 'bkjson') { blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }); name = `adanawo-backup-${day}.json`; }
+      else {
+        const priv = Object.fromEntries(out.people_private.map((x) => [x.person_id, x.whatsapp])), cols = ['full_name', 'title', 'category', 'gago_area', 'appointed_on', 'office', 'whatsapp'];
+        const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const rows = [cols.join(',')].concat(out.people.map((p) => cols.map((c) => q(c === 'whatsapp' ? priv[p.id] : p[c])).join(',')));
+        blob = new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv' }); name = `adanawo-people-${day}.csv`;
+      }
+      const u = URL.createObjectURL(blob), l = document.createElement('a'); l.href = u; l.download = name; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); toast('Backup downloaded');
+    }
     else if (act === 'sugdone') { await sb.from('suggestions').update({ status: 'done' }).eq('id', id); await render(true); }
   } };
 
