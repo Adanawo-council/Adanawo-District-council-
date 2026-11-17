@@ -129,3 +129,18 @@ details.card summary{cursor:pointer}
 
 .legal{max-width:720px;margin:0 auto;padding:20px 16px 40px}.legal h1{font-size:28px;margin-bottom:6px}.legal h2{font-size:19px;margin:22px 0 6px}.legal p,.legal li{font-size:16px}
 footer .links a{color:var(--soft);margin:0 8px;font-size:13px}
+
+/* ---- v4: groups and sign-in ---- */
+input[type=password]{width:100%;font:16px Inter,sans-serif;border:1.5px solid #d9cda8;border-radius:10px;padding:10px 12px;background:#fff;color:var(--ink)}
+.gtabs{display:flex;gap:6px;margin:14px 0;overflow-x:auto}
+.gtabs button{font:600 14px Inter,sans-serif;border:1.5px solid var(--green);background:transparent;color:var(--green);border-radius:999px;padding:8px 16px;cursor:pointer;white-space:nowrap}
+.gtabs button.on{background:var(--green);color:#fff}
+.gcard{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--paper);border:1px solid #e3d9bf;border-left:5px solid var(--green);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+.gcard b{font-family:'Source Serif 4',serif;font-size:17px;color:var(--greenDark)}.gcard small{display:block;color:var(--soft)}
+.pin{color:var(--mustard);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.attach{display:inline-block;margin-top:6px;padding:8px 12px;background:#ece3c9;border-radius:8px;text-decoration:none;color:var(--ink);font-size:14px}
+.chat{background:var(--paper);border:1px solid #e3d9bf;border-radius:12px;padding:10px;height:52vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:85%;background:#fff;border:1px solid #e3d9bf;border-radius:12px;padding:7px 11px;align-self:flex-start}
+.msg.mine{align-self:flex-end;background:#dcebd6;border-color:#bcd3b4}
+.msg b{display:block;font-size:12px;color:var(--blue)}.msg small{color:var(--soft);font-size:11px}
+.lnk{background:none;border:0;color:var(--bead);text-decoration:underline;cursor:pointer;font:inherit;padding:0 4px}

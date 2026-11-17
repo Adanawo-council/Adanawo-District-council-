@@ -53,7 +53,7 @@
     return path;
   }
   async function choosePhoto(maxSide) { const f = await pickFile(); return f ? uploadPhoto(f, maxSide) : null; }
-  Object.assign(APP, { pickFile, uploadPhoto, choosePhoto });
+  Object.assign(APP, { pickFile, uploadPhoto, choosePhoto, shrink });
 
   // ---------- people cards ----------
   function personCard(p) {
@@ -93,6 +93,29 @@
   }
   async function signOut() { await sb.auth.signOut(); st.user = null; st.roles = []; st.me = null; location.hash = '#/home'; render(); }
   APP.signIn = signIn;
+  function openSignIn() {
+    openModal(`<h2>Sign in</h2><p>Welcome. Choose how you would like to sign in.</p>
+      <button class="btn" data-act="google" style="width:100%">Continue with Google</button>
+      <details class="card" style="margin-top:14px"><summary><b>Use email and password instead</b></summary>
+        <label for="siEmail">Email</label><input type="text" id="siEmail" inputmode="email" autocapitalize="none" autocomplete="username">
+        <label for="siPass">Password</label><input type="password" id="siPass" autocomplete="current-password">
+        <div class="row"><button class="btn" data-act="pwin">Sign in</button></div>
+        <hr style="border:0;border-top:1px dashed #d9cda8;margin:16px 0"><b>New here?</b>
+        <label for="siName">Your name</label><input type="text" id="siName">
+        <div class="row"><button class="btn alt" data-act="pwup">Create my account</button></div>
+        <small>At least 6 characters for the password. If you forget it, message the palace with the "Report any technical issue" button.</small></details>
+      <div class="row"><button class="btn alt" data-close="1">Close</button></div>`);
+  }
+  async function pwAuth(kind) {
+    const email = ($('#siEmail').value || '').trim(), password = $('#siPass').value || '';
+    if (!email || password.length < 6) return toast('Please enter your email and a password of at least 6 characters');
+    let r;
+    if (kind === 'pwin') r = await sb.auth.signInWithPassword({ email, password });
+    else { const name = ($('#siName').value || '').trim(); if (!name) return toast('Please enter your name'); r = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } }); }
+    if (r.error) return toast(r.error.message);
+    if (kind === 'pwup' && !r.data.session) return toast('Almost done. Please open the email we sent you and confirm it, then sign in.');
+    closeModal(); toast('Welcome');
+  }
   const needSignIn = (why) => `<div class="card" style="text-align:center"><p>${esc(why || 'Please sign in to continue.')}</p><button class="btn" data-act="signin">Sign in with Google</button></div>`;
   APP.needSignIn = needSignIn;
   function renderAuth() {
@@ -131,7 +154,9 @@
     const el = e.target.closest('[data-act]'); if (!el) return;
     const act = el.dataset.act, id = el.dataset.id; let r;
     try {
-      if (act === 'signin') return signIn();
+      if (act === 'signin') return openSignIn();
+      if (act === 'google') { closeModal(); return signIn(); }
+      if (act === 'pwin' || act === 'pwup') return pwAuth(act);
       if (act === 'signout') return signOut();
       if (act === 'support') return openSupport();
       if (!st.user && ['like', 'sendcomment', 'report'].includes(act)) return toast('Please sign in first');
@@ -199,6 +224,8 @@
     return `<section class="section" style="margin-top:6px"><h2>${ico('crown')} The Crown</h2><p class="lead">The Onu Ankpa, the Eje and the Adanawo.</p>${grid(crown)}</section>
       ${pol.length ? `<section class="section"><h2>${ico('seal')} Political office holders</h2><p class="lead">Sons and daughters of Adanawo District in public office.</p>${grid(pol)}</section>` : ''}
       ${off.length ? `<section class="section"><h2>${ico('ribbon')} District Council officers</h2>${grid(off)}</section>` : ''}
+      <section class="section"><h2>${ico('calabash')} Community structures</h2><p class="lead">The bodies that organise the life of Adanawo, and who leads them.</p>
+        <div class="people">${S.structures.map((x) => `<article class="card person"><h3>${esc(x.name)}</h3><p class="off" style="margin-top:8px">${esc(x.head)}</p><p class="pt">${esc(x.role)}</p></article>`).join('')}</div></section>
       ${past.length ? `<section class="section"><h2>${ico('palm')} Past District Heads</h2><p class="lead">We remember those who led before.</p>${grid(past)}</section>` : ''}`;
   } };
 
@@ -220,7 +247,9 @@
       return `<section class="area"><div class="head"><h2>${esc(a.name)}</h2><span>${vs.length} villages · ${ag.length} Gagos</span></div><div class="body"><div class="chips">${vs.map((v) => `<span class="chip ${v.is_headquarters ? 'hq' : ''}">${esc(v.name)}${v.is_headquarters ? ' (HQ)' : ''}</span>`).join('')}</div>
         ${villageGroups(vs.filter((v) => !v.is_headquarters), ag) || '<p class="empty">Gagos will appear here.</p>'}</div></section>`; }).join('');
     const known = new Set(st.villages.map((v) => v.id)), rest = gagos.filter((g) => !g.village_id || !known.has(g.village_id)).sort(byRank);
-    const other = rest.length ? `<section class="area"><div class="head"><h2>Other Gago areas</h2><span>${rest.length} Gagos</span></div><div class="body">${rest.map(gagoRow).join('')}</div></section>` : '';
+    const byPlace = {}; rest.forEach((g) => { (byPlace[g.gago_area || 'Other'] = byPlace[g.gago_area || 'Other'] || []).push(g); });
+    const other = rest.length ? `<section class="area"><div class="head"><h2>Gagos of other places</h2><span>${rest.length} Gagos</span></div><div class="body">
+      ${Object.entries(byPlace).sort((x, y) => x[0].localeCompare(y[0])).map(([pl, l]) => `<details class="vg"><summary>${esc(pl)}<span>${l.length} Gago${l.length > 1 ? 's' : ''}</span></summary>${l.sort(byRank).map(gagoRow).join('')}</details>`).join('')}</div></section>` : '';
     return `<section class="section" style="margin-top:6px"><h2>${ico('bead')} Places and Gagos</h2><p class="lead">Adanawo District is made up of three areas, with Emanyi as the Administrative Headquarters. Tap a village to see its Gagos.</p></section>${hq}${areas}${other}`;
   } };
 
@@ -239,8 +268,14 @@
   // ---------- Admin office ----------
   PAGES.admin = { async view() {
     if (!isAdmin()) return '<p class="empty">This part is only for the palace administrators.</p>';
-    const [sg, rp] = await Promise.all([has('owner') ? sb.from('suggestions').select('*').order('created_at', { ascending: false }).limit(30) : { data: [] },
-      sb.from('reports').select('*').eq('resolved', false).order('created_at', { ascending: false }).limit(30)]);
+    const [sg, rp, gr, gm] = await Promise.all([has('owner') ? sb.from('suggestions').select('*').order('created_at', { ascending: false }).limit(30) : { data: [] },
+      sb.from('reports').select('*').eq('resolved', false).order('created_at', { ascending: false }).limit(30),
+      sb.from('groups').select('*').order('sort_order'), sb.from('group_members').select('*').eq('role', 'admin')]);
+    const signed = st.people.filter((p) => p.user_id).sort((x, y) => x.full_name.localeCompare(y.full_name));
+    const leadersCard = `<div class="card" style="margin-top:14px"><h3>Group leaders</h3><p class="lead" style="margin:4px 0 8px">Each group leader approves who joins their group. The leader must have signed in once.</p>
+      ${(gr.data || []).map((g) => { const ls = (gm.data || []).filter((m) => m.group_id === g.id);
+        return `<div class="admin-row" style="display:block"><b>${esc(g.name)}</b><small>Leader: ${ls.map((m) => `${esc(nameOf(m.user_id))} <button class="lnk" data-act="unlead" data-gid="${g.id}" data-uid="${m.user_id}">remove</button>`).join(', ') || 'none yet'}</small>
+          <div class="row"><select id="gl-${g.id}" style="flex:1;min-width:0"><option value="">Choose a person who has signed in</option>${signed.map((p) => `<option value="${p.user_id}">${esc(p.full_name)}</option>`).join('')}</select><button class="btn small" data-act="lead" data-gid="${g.id}">Make leader</button></div></div>`; }).join('')}</div>`;
     const open = st.settings.pitch_window_open === 'true';
     return `<section class="section" style="margin-top:6px"><h2>${ico('seal')} Admin office</h2>
       <div class="card" style="margin-top:12px"><h3>The Note</h3><label for="noteText">Text shown on the Home page</label><textarea id="noteText">${esc(st.settings.note_text || '')}</textarea>
@@ -249,6 +284,7 @@
         <button class="btn ${open ? 'alt' : ''}" data-act="togglepitch">${open ? 'Close the window' : 'Open the window'}</button></div>
       <div class="card" style="margin-top:14px"><h3>Backup</h3><p class="lead" style="margin:4px 0 8px">Download a copy of the people list and the main content. Keep it safe. Do this once a month.</p>
         <div class="row" style="margin:0"><button class="btn alt" data-act="bkcsv">People list (spreadsheet)</button><button class="btn alt" data-act="bkjson">Everything (backup file)</button></div></div>
+      ${leadersCard}
       <div class="card" style="margin-top:14px"><h3>People</h3><p class="lead" style="margin:4px 0 8px">Search a person. Make a code so they can claim their profile, add their picture, or give them a role.</p>
         <input type="search" id="pSearch" placeholder="Search by name or place"><div id="pList"></div></div>
       ${(rp.data || []).length ? `<div class="card" style="margin-top:14px"><h3>Reports</h3>${rp.data.map((r) => `<div class="admin-row"><div><b>${esc(r.target_type)}</b><small>${esc(r.reason || '')} · ${fmtDate(r.created_at)}</small></div><div class="row" style="margin:0"><button class="btn small" data-act="hide" data-id="${r.id}" data-type="${esc(r.target_type)}" data-target="${r.target_id}">Hide it</button><button class="btn alt small" data-act="dismiss" data-id="${r.id}">Dismiss</button></div></div>`).join('')}</div>` : ''}
@@ -260,7 +296,7 @@
       let ps = st.people.filter((p) => p.category !== 'member' || p.user_id);
       ps = q ? ps.filter((p) => (p.full_name + ' ' + (p.title || '') + ' ' + (p.gago_area || '')).toLowerCase().includes(q)) : ps.filter((p) => p.needs_review || ['king', 'district_head'].includes(p.category));
       list.innerHTML = ps.sort(byRank).slice(0, 40).map((p) => `<div class="admin-row"><div><b>${esc(p.full_name)}</b><small>${esc(p.title || '')}${p.user_id ? ' · signed in' : ''}</small>${p.needs_review ? '<small class="flag">Please check this entry</small>' : ''}</div>
-        <div class="row" style="margin:0"><button class="btn alt small" data-act="photoFor" data-id="${p.id}">Picture</button>${p.user_id ? `<button class="btn alt small" data-act="role" data-id="${p.user_id}" data-role="elder">Elder</button>${has('owner') ? `<button class="btn alt small" data-act="role" data-id="${p.user_id}" data-role="admin">Admin</button>` : ''}` : `<button class="btn small" data-act="code" data-id="${p.id}">Make code</button>`}${p.needs_review ? `<button class="btn alt small" data-act="checked" data-id="${p.id}">Checked</button>` : ''}</div></div>`).join('') || '<p class="empty">Nothing to show. Try a search.</p>';
+        <div class="row" style="margin:0"><button class="btn alt small" data-act="editp" data-id="${p.id}">Edit</button><button class="btn alt small" data-act="photoFor" data-id="${p.id}">Picture</button>${p.user_id ? `<button class="btn alt small" data-act="role" data-id="${p.user_id}" data-role="elder">Elder</button>${has('owner') ? `<button class="btn alt small" data-act="role" data-id="${p.user_id}" data-role="admin">Admin</button>` : ''}` : `<button class="btn small" data-act="code" data-id="${p.id}">Make code</button>`}${p.needs_review ? `<button class="btn alt small" data-act="checked" data-id="${p.id}">Checked</button>` : ''}</div></div>`).join('') || '<p class="empty">Nothing to show. Try a search.</p>';
     };
     draw(); $('#pSearch').oninput = draw; PAGES.admin.draw = draw;
   }, async onClick(act, el) {
@@ -291,6 +327,18 @@
       }
       const u = URL.createObjectURL(blob), l = document.createElement('a'); l.href = u; l.download = name; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); toast('Backup downloaded');
     }
+    else if (act === 'lead') { const uid = $('#gl-' + el.dataset.gid).value; if (!uid) return toast('Choose a person first');
+      const { error } = await sb.from('group_members').upsert({ group_id: el.dataset.gid, user_id: uid, role: 'admin', status: 'member' }); if (error) return toast(error.message); toast('Leader set'); await render(true); }
+    else if (act === 'unlead') { const { error } = await sb.from('group_members').delete().eq('group_id', el.dataset.gid).eq('user_id', el.dataset.uid); if (error) return toast(error.message); await render(true); }
+    else if (act === 'editp') { const p = st.people.find((x) => x.id === id);
+      openModal(`<h2>Edit ${esc(p.full_name)}</h2><label for="epName">Name</label><input type="text" id="epName" value="${esc(p.full_name)}"><label for="epTitle">Title</label><input type="text" id="epTitle" value="${esc(p.title || '')}">
+        <label for="epVillage">Village</label><select id="epVillage"><option value="">None</option>${st.villages.map((v) => `<option value="${v.id}"${v.id === p.village_id ? ' selected' : ''}>${esc(v.name)}</option>`).join('')}</select>
+        <label for="epArea">Place they rule (as written)</label><input type="text" id="epArea" value="${esc(p.gago_area || '')}"><label for="epDate">Date of appointment</label><input type="date" id="epDate" value="${esc(p.appointed_on || '')}">
+        <div class="row"><button class="btn" data-act="epsave" data-id="${id}">Save</button><button class="btn alt" data-close="1">Cancel</button></div>`); }
+    else if (act === 'epsave') { const vid = $('#epVillage').value || null, v = st.villages.find((x) => x.id === vid);
+      const row = { full_name: $('#epName').value.trim(), title: $('#epTitle').value.trim() || null, village_id: vid, area_id: v ? v.area_id : null, gago_area: $('#epArea').value.trim() || null, appointed_on: $('#epDate').value || null };
+      if (!row.full_name) return toast('The name cannot be empty'); const { error } = await sb.from('people').update(row).eq('id', id); if (error) return toast(error.message);
+      closeModal(); toast('Saved'); await refresh(); }
     else if (act === 'sugdone') { await sb.from('suggestions').update({ status: 'done' }).eq('id', id); await render(true); }
   } };
 
@@ -299,7 +347,7 @@
   async function render(keepScroll) {
     const my = ++busy, y = window.scrollY;
     let cur = (location.hash.replace(/^#\//, '') || 'home').split('?')[0]; if (!PAGES[cur]) cur = 'home';
-    const ORDER = ['home', 'leaders', 'places', 'history', 'alo', 'meetings', 'youth', 'markets', 'about', 'me', 'admin'];
+    const ORDER = ['home', 'leaders', 'places', 'history', 'alo', 'meetings', 'groups', 'youth', 'markets', 'about', 'me', 'admin'];
     const items = ORDER.filter((k) => PAGES[k] && PAGES[k].label && (!PAGES[k].when || PAGES[k].when())).map((k) => [k, PAGES[k].label]);
     $('#nav').innerHTML = items.map(([k, l]) => `<a href="#/${k}" class="${k === cur ? 'on' : ''}">${esc(l)}</a>`).join('');
     renderAuth();

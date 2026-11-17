@@ -19,6 +19,15 @@ window.SITE = {
     'The district is made up of Ikoja, Ojogobi and Adoche, with Emanyi as the Administrative Headquarters.'
   ],
 
+  // ---- The community structures shown on the Leaders page ----
+  structures: [
+    { name: 'Adanawo Community Leadership', head: 'Mr. Bala Negedu, PhD, KSM', role: 'Community Leader' },
+    { name: 'Adanawo District Youth Assembly (ADYA)', head: 'Comrade Hussain Sule (Dollar)', role: 'Leader' },
+    { name: 'Adanawo Women Structure (Magajiyas)', head: 'Mallama Adijetu Okpanachi', role: 'The Iyodo of Adanawo' },
+    { name: 'Adanawo District Vigilante Structure', head: 'Mallam Akpa Haruna Budget', role: 'Leader' },
+    { name: 'Adanawo Hunters Group', head: 'To be announced', role: '' }
+  ],
+
   // ---- Colours ----
   colors: {
     cream: '#F5EFE0', paper: '#FBF7EC', green: '#1E4D2B', greenDark: '#143520',
