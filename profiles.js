@@ -22,4 +22,37 @@
         ${p.public_whatsapp ? `<div class="row" style="justify-content:center"><a class="btn" target="_blank" rel="noopener" href="https://wa.me/${digits(p.public_whatsapp)}">Message on WhatsApp</a></div>` : ''}
         ${p.bio ? `<p class="bio">${esc(p.bio)}</p>` : ''}</div>${posts}</section>`;
   } };
+
+  // ---------- People: browse everyone (signed-in only) ----------
+  const P = { q: '', f: 'all', n: 60 };
+  const LEADER = ['king', 'district_head', 'political', 'council_officer'];
+  const FILTERS = [['all', 'Everyone'], ['leaders', 'Leaders'], ['gago', 'Gagos'], ['member', 'Members and youths']];
+  function listHtml() {
+    const q = P.q.toLowerCase().trim(), vname = (id) => (st.villages.find((v) => v.id === id) || {}).name || '';
+    let l = st.people.filter((p) => !p.is_past || P.f === 'all' || P.f === 'leaders');
+    if (P.f === 'leaders') l = l.filter((p) => LEADER.includes(p.category));
+    else if (P.f === 'gago') l = l.filter((p) => p.category === 'gago');
+    else if (P.f === 'member') l = l.filter((p) => p.category === 'member');
+    if (q) l = l.filter((p) => (p.full_name + ' ' + (p.title || '') + ' ' + vname(p.village_id) + ' ' + (p.gago_area || '')).toLowerCase().includes(q));
+    const order = { king: 0, district_head: 1, political: 2, council_officer: 3, gago: 4, member: 5 };
+    l = l.slice().sort((a, b) => (order[a.category] - order[b.category]) || (a.rank_order - b.rank_order) || a.full_name.localeCompare(b.full_name));
+    const shown = l.slice(0, P.n);
+    return `<p class="lead" style="margin:6px 0 8px">${l.length} ${l.length === 1 ? 'person' : 'people'}</p>` + (shown.map((p) => {
+      const img = photoUrl(p.photo_path), sub = p.title || [vname(p.village_id), p.category === 'member' ? 'Member' : ''].filter(Boolean).join(' · ') || 'Member';
+      return `<a class="gago plink" href="#/profile/${p.id}">${img ? `<img class="gp" src="${esc(img)}" alt="" loading="lazy">` : ico('person')}<div><div class="gn">${esc(p.full_name)}</div><div class="gt">${esc(sub)}</div></div></a>`;
+    }).join('') || '<p class="empty">Nobody matches your search.</p>') + (l.length > P.n ? '<div class="row" style="justify-content:center"><button class="btn alt" data-act="pmore">Show more</button></div>' : '');
+  }
+  PAGES.people = { label: 'People', when: () => !!st.user, view() {
+    if (!st.user) return needSignIn('Please sign in to browse the people of Adanawo.');
+    return `<section class="section" style="margin-top:6px"><h2>${ico('person')} People of Adanawo</h2><p class="lead">Tap anyone to see their page. This list is only for people who are signed in.</p>
+      <input type="search" id="pq" placeholder="Search by name or village" value="${esc(P.q)}">
+      <div class="gtabs" style="margin-bottom:6px">${FILTERS.map(([k, t]) => `<button data-act="pf" data-f="${k}" class="${P.f === k ? 'on' : ''}">${esc(t)}</button>`).join('')}</div>
+      <div id="pList2" class="card" style="padding:6px 14px">${listHtml()}</div></section>`;
+  }, bind() {
+    const i = document.getElementById('pq'); if (!i) return;
+    i.oninput = () => { P.q = i.value; P.n = 60; document.getElementById('pList2').innerHTML = listHtml(); };
+  }, onClick(act, el) {
+    if (act === 'pf') { P.f = el.dataset.f; P.n = 60; return true; }
+    if (act === 'pmore') { P.n += 60; return true; }
+  } };
 })();

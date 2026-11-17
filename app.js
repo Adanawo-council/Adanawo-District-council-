@@ -348,7 +348,7 @@
   async function render(keepScroll) {
     const my = ++busy, y = window.scrollY;
     const parts = (location.hash.replace(/^#\//, '') || 'home').split('?')[0].split('/'); let cur = parts[0]; APP.arg = parts[1] || null; if (!PAGES[cur]) cur = 'home';
-    const ORDER = ['home', 'leaders', 'places', 'history', 'alo', 'meetings', 'groups', 'youth', 'markets', 'about', 'me', 'admin'];
+    const ORDER = ['home', 'leaders', 'places', 'people', 'history', 'alo', 'meetings', 'groups', 'youth', 'markets', 'about', 'me', 'admin'];
     const items = ORDER.filter((k) => PAGES[k] && PAGES[k].label && (!PAGES[k].when || PAGES[k].when())).map((k) => [k, PAGES[k].label]);
     $('#nav').innerHTML = items.map(([k, l]) => `<a href="#/${k}" class="${k === cur ? 'on' : ''}">${esc(l)}</a>`).join('');
     renderAuth();
