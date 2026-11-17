@@ -22,6 +22,7 @@
         <label for="meVillage">My village</label><select id="meVillage"><option value="">Choose</option>${st.villages.map((v) => opt(v.id, v.name, v.id === p.village_id)).join('')}</select>
         <label for="meWa">My WhatsApp number${isLeader ? ' (please fill this in)' : ''}</label><input type="text" id="meWa" inputmode="tel" value="${esc((pr.data && pr.data.whatsapp) || '')}" placeholder="08012345678">
         <small>Only the palace administrators can see this number.</small>
+        ${isLeader ? `<label style="font-weight:500"><input type="checkbox" id="meShowWa" ${p.public_whatsapp ? 'checked' : ''}> Show a WhatsApp button on my public profile</label>` : ''}
         <label for="meBio">A few words about me</label><textarea id="meBio">${esc(p.bio || '')}</textarea>
         <div class="row"><button class="btn" data-act="mesave">Save</button></div></div></section>`;
   }, async onClick(act) {
@@ -29,7 +30,7 @@
     if (act === 'mephoto') { const path = await choosePhoto(900); if (!path) return; const { error } = await sb.from('people').update({ photo_path: path }).eq('id', p.id); if (error) return toast(friendly(error)); toast('Picture saved'); await refresh(); }
     if (act === 'mesave') {
       const vid = $('#meVillage').value || null, v = st.villages.find((x) => x.id === vid);
-      const r1 = await sb.from('people').update({ full_name: $('#meName').value.trim() || p.full_name, bio: $('#meBio').value.trim() || null, village_id: vid, area_id: v ? v.area_id : null }).eq('id', p.id);
+      const r1 = await sb.from('people').update({ full_name: $('#meName').value.trim() || p.full_name, bio: $('#meBio').value.trim() || null, village_id: vid, area_id: v ? v.area_id : null, ...(p.category !== 'member' ? { public_whatsapp: ($('#meShowWa') && $('#meShowWa').checked && $('#meWa').value.trim()) ? $('#meWa').value.trim() : null } : {}) }).eq('id', p.id);
       const r2 = await sb.from('people_private').upsert({ person_id: p.id, whatsapp: $('#meWa').value.trim() || null });
       const e = r1.error || r2.error; if (e) return toast(friendly(e)); toast('Saved'); await refresh();
     }
@@ -180,10 +181,10 @@
       <div class="row"><button class="btn alt small" data-act="yphoto" id="yph">Add a picture</button><button class="btn" data-act="ypitch">Share my pitch</button></div></div>`;
     return `<section class="section" style="margin-top:6px"><h2>${ico('crown')} Youth Day</h2>
       <p class="lead">A place for our young people to show their ideas and talents, and to ask for support. The window is <b>${open ? 'open now' : 'closed'}</b>${open && st.settings.pitch_window_closes ? ', until ' + esc(st.settings.pitch_window_closes) : ''}. ${open ? '' : 'Watch the Home page for the next Youth Day.'}</p>
-      ${form}${await A.postBlocks(pi.data || [])}</section>
+      ${form}${st.user ? await A.postBlocks(pi.data || []) : (open ? '' : needSignIn('Sign in to see the pitches.'))}</section>
       <section class="section"><h2>${ico('person')} New faces</h2><p class="lead">We welcome new members of the community and say where they come from.</p>
       ${canIntro ? `<div class="card" style="margin-bottom:14px"><label for="nfT">Welcome someone</label><input type="text" id="nfT" placeholder="Name and village"><textarea id="nfB" placeholder="A few words" style="margin-top:8px"></textarea><div class="row"><button class="btn" data-act="newface">Post welcome</button></div></div>` : ''}
-      ${await A.postBlocks(nf.data || [])}</section>`;
+      ${st.user ? await A.postBlocks(nf.data || []) : ''}</section>`;
   }, async onClick(act) {
     if (act === 'yphoto') { const p = await choosePhoto(1280); if (p) { Y.photo = p; $('#yph').textContent = 'Picture added'; } return; }
     if (act === 'ypitch') {

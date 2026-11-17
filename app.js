@@ -30,6 +30,7 @@
   const photoUrl = (p) => (p ? sb.storage.from('photos').getPublicUrl(p).data.publicUrl : null);
   const personByUser = (uid) => st.people.find((p) => p.user_id === uid);
   const nameOf = (uid) => (personByUser(uid) || {}).full_name || 'A member';
+  const authorOf = (p) => { const x = personByUser(p.author_id); return x ? `<a href="#/profile/${x.id}">${esc(x.full_name)}</a>` : (p.kind === 'announcement' ? 'The Palace' : 'A member'); };
   Object.assign(APP, { photoUrl, personByUser, nameOf });
 
   // pick a picture, shrink it (keeps the free storage small), upload it, give back its path
@@ -59,8 +60,8 @@
   function personCard(p) {
     const m = S.marks[p.mark] || S.marks.none; const img = photoUrl(p.photo_path);
     const badge = (m.crown ? `<span class="crownTop">${ico('crown')}</span>` : '') + (m.icon ? `<span class="badge" title="${esc(m.label)}">${ico(m.icon)}</span>` : '');
-    return `<article class="card person mark-${esc(p.mark)}"><div class="photo">${img ? `<img src="${esc(img)}" alt="${esc(p.full_name)}" loading="lazy">` : ico('person', 'p')}${badge}</div>
-      <h3>${esc(p.full_name)}</h3><p class="pt">${esc(p.title || '')}</p>${p.office ? `<p class="off">${esc(p.office)}</p>` : ''}${p.is_late ? '<p class="late">Late</p>' : ''}</article>`;
+    return `<a class="card person plink mark-${esc(p.mark)}" href="#/profile/${p.id}"><div class="photo">${img ? `<img src="${esc(img)}" alt="${esc(p.full_name)}" loading="lazy">` : ico('person', 'p')}${badge}</div>
+      <h3>${esc(p.full_name)}</h3><p class="pt">${esc(p.title || '')}</p>${p.office ? `<p class="off">${esc(p.office)}</p>` : ''}${p.is_late ? '<p class="late">Late</p>' : ''}</a>`;
   }
   Object.assign(APP, { personCard });
 
@@ -138,9 +139,9 @@
       return `<article class="post kind-${esc(p.kind)}">${p.title ? `<h3>${esc(p.title)}</h3>` : ''}
         ${p.talent ? `<p class="meta"><b>Talent:</b> ${esc(p.talent)}</p>` : ''}${img ? `<img class="pic" src="${esc(img)}" alt="" loading="lazy">` : ''}
         <p>${esc(p.body)}</p>${p.support_needed ? `<p class="meta"><b>Support needed:</b> ${esc(p.support_needed)}</p>` : ''}
-        <small>${esc(nameOf(p.author_id))} · ${fmtDate(p.created_at)}</small>
+        <small>${authorOf(p)} · ${fmtDate(p.created_at)}</small>
         <div class="acts"><button class="lk ${mine ? 'on' : ''}" data-act="like" data-id="${p.id}" data-on="${mine ? 1 : 0}">♥ ${l.length}</button>
-          ${p.comments_open ? `<button data-act="comments" data-id="${p.id}">Comments (${cs.length})</button>` : ''}
+          ${p.comments_open && st.user ? `<button data-act="comments" data-id="${p.id}">Comments (${cs.length})</button>` : ''}
           ${own || isAdmin() ? `<button data-act="delpost" data-id="${p.id}">Delete</button>` : (st.user ? `<button data-act="report" data-type="post" data-id="${p.id}">Report</button>` : '')}</div>
         <div class="cbox" id="cb-${p.id}" hidden>${cs.map((c) => `<div class="cm"><b>${esc(nameOf(c.author_id))}</b> ${esc(c.body)}${st.user && (c.author_id === st.user.id || isAdmin()) ? ` <a href="#" data-act="delcomment" data-id="${c.id}">remove</a>` : ''}</div>`).join('')}
           ${st.user ? `<div class="row" style="margin-top:8px"><input type="text" id="ci-${p.id}" placeholder="Write a comment"><button class="btn small" data-act="sendcomment" data-id="${p.id}">Send</button></div>` : '<small>Sign in to comment.</small>'}</div>
@@ -199,7 +200,7 @@
       <section class="section"><h2>${ico('calabash')} Announcements</h2><p class="lead">Words from the Onu Ankpa, the Eje and the Adanawo.</p>
         ${canAnn ? composer('announcement', 'New announcement') : ''}${await postBlocks(an.data || [])}</section>
       <section class="section"><h2>${ico('ribbon')} From the leaders</h2><p class="lead">Notices from Gagos and other leaders. Everyone can comment and like.</p>
-        ${canLead ? composer('leader_post', 'New notice') : ''}${await postBlocks(lp.data || [])}</section>
+        ${st.user ? (canLead ? composer('leader_post', 'New notice') : '') + await postBlocks(lp.data || []) : needSignIn('Sign in to read the notices from the leaders.')}</section>
       <div class="support"><button class="btn" data-act="support">${esc(S.supportLabel)}</button></div>`;
   }, async onClick(act, el) {
     if (act === 'newpost') {
@@ -232,7 +233,7 @@
   // ---------- Places ----------
   function gagoRow(p) {
     const img = photoUrl(p.photo_path), yr = p.appointed_on ? ` · since ${new Date(p.appointed_on).getFullYear()}` : '';
-    return `<div class="gago">${img ? `<img class="gp" src="${esc(img)}" alt="" loading="lazy">` : ico('bead')}<div><div class="gn">${esc(p.full_name)}</div><div class="gt">${esc(p.title || '')}${yr}</div></div></div>`;
+    return `<a class="gago plink" href="#/profile/${p.id}">${img ? `<img class="gp" src="${esc(img)}" alt="" loading="lazy">` : ico('bead')}<div><div class="gn">${esc(p.full_name)}</div><div class="gt">${esc(p.title || '')}${yr}</div></div></a>`;
   }
   function villageGroups(vs, gagos) {
     return vs.map((v) => { const g = gagos.filter((x) => x.village_id === v.id).sort(byRank); if (!g.length) return '';
@@ -346,7 +347,7 @@
   let busy = 0, lastRoute = null;
   async function render(keepScroll) {
     const my = ++busy, y = window.scrollY;
-    let cur = (location.hash.replace(/^#\//, '') || 'home').split('?')[0]; if (!PAGES[cur]) cur = 'home';
+    const parts = (location.hash.replace(/^#\//, '') || 'home').split('?')[0].split('/'); let cur = parts[0]; APP.arg = parts[1] || null; if (!PAGES[cur]) cur = 'home';
     const ORDER = ['home', 'leaders', 'places', 'history', 'alo', 'meetings', 'groups', 'youth', 'markets', 'about', 'me', 'admin'];
     const items = ORDER.filter((k) => PAGES[k] && PAGES[k].label && (!PAGES[k].when || PAGES[k].when())).map((k) => [k, PAGES[k].label]);
     $('#nav').innerHTML = items.map(([k, l]) => `<a href="#/${k}" class="${k === cur ? 'on' : ''}">${esc(l)}</a>`).join('');
@@ -362,7 +363,7 @@
   // clicks that belong to the page being shown
   document.addEventListener('click', async (e) => {
     const el = e.target.closest('[data-act]'); if (!el) return;
-    let cur = (location.hash.replace(/^#\//, '') || 'home').split('?')[0]; if (!PAGES[cur]) cur = 'home';
+    let cur = (location.hash.replace(/^#\//, '') || 'home').split('?')[0].split('/')[0]; if (!PAGES[cur]) cur = 'home';
     const pg = PAGES[cur]; if (!pg || !pg.onClick) return;
     try { const again = await pg.onClick(el.dataset.act, el); if (again === true) await render(true); } catch (err) { toast(err.message || String(err)); }
   });

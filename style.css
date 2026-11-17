@@ -144,3 +144,14 @@ input[type=password]{width:100%;font:16px Inter,sans-serif;border:1.5px solid #d
 .msg.mine{align-self:flex-end;background:#dcebd6;border-color:#bcd3b4}
 .msg b{display:block;font-size:12px;color:var(--blue)}.msg small{color:var(--soft);font-size:11px}
 .lnk{background:none;border:0;color:var(--bead);text-decoration:underline;cursor:pointer;font:inherit;padding:0 4px}
+
+/* ---- v5: profile pages ---- */
+a.plink{text-decoration:none;color:inherit;display:block}
+a.card.person{display:block}
+a.gago.plink{display:flex}
+a.plink:active{opacity:.8}
+.profile{text-align:center;padding:22px 16px}
+.profile .photo{width:132px;height:132px;border-radius:50%;margin:0 auto 12px;background:#ece3c9;display:flex;align-items:center;justify-content:center;color:#b8aa80;position:relative;border:3px solid var(--cream);box-shadow:0 0 0 2px #d9cda8}
+.profile .photo img{width:100%;height:100%;border-radius:50%;object-fit:cover}.profile .photo svg.p{width:64px;height:64px}
+.profile h1{font-size:26px}.profile .pt{color:var(--soft);margin:4px 0}.profile .bio{text-align:left;white-space:pre-wrap;margin-top:14px}
+.post small a{color:var(--green)}
