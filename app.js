@@ -256,7 +256,7 @@
 
   // ---------- About (with the suggestion box) ----------
   PAGES.about = { view() {
-    return `<section class="section" style="margin-top:6px"><h2>${ico('palm')} About</h2>${S.aboutText.map((t) => `<p>${esc(t)}</p>`).join('')}
+    return `<section class="section" style="margin-top:6px"><h2>${ico('palm')} About</h2>${(st.settings.about_text && st.settings.about_text.trim() ? st.settings.about_text.trim().split(/\n\s*\n/) : S.aboutText).map((t) => `<p style="white-space:pre-wrap">${esc(t)}</p>`).join('')}
       <p style="margin-top:22px;color:var(--soft)">${esc(S.creditLine)}.</p></section>
       <section class="section"><h2>${ico('calabash')} Suggestion box</h2><p class="lead">Have an idea to make this page better? Tell us. Only the page owner reads it.</p>
       ${st.user ? `<textarea id="sugg" placeholder="Your suggestion"></textarea><div class="row"><button class="btn" data-act="suggest">Send suggestion</button></div>` : needSignIn('Please sign in to send a suggestion.')}</section>`;
@@ -281,6 +281,9 @@
     return `<section class="section" style="margin-top:6px"><h2>${ico('seal')} Admin office</h2>
       <div class="card" style="margin-top:12px"><h3>The Note</h3><label for="noteText">Text shown on the Home page</label><textarea id="noteText">${esc(st.settings.note_text || '')}</textarea>
         <label for="noteSigned">Signed</label><input type="text" id="noteSigned" value="${esc(st.settings.note_signed || '')}"><div class="row"><button class="btn" data-act="savenote">Save the Note</button></div></div>
+      <div class="card" style="margin-top:14px"><h3>About page</h3><p class="lead" style="margin:4px 0 8px">The text on the About page. Leave a blank line between paragraphs. Clear the box and save to go back to the original text.</p>
+        <textarea id="aboutText" style="min-height:220px">${esc((st.settings.about_text && st.settings.about_text.trim()) ? st.settings.about_text : S.aboutText.join('\n\n'))}</textarea>
+        <div class="row"><button class="btn" data-act="saveabout">Save the About page</button></div></div>
       <div class="card" style="margin-top:14px"><h3>Youth pitch day</h3><p class="lead" style="margin:4px 0 8px">The pitch window is <b>${open ? 'OPEN' : 'closed'}</b>. While it is open, anyone signed in can share a pitch.</p>
         <button class="btn ${open ? 'alt' : ''}" data-act="togglepitch">${open ? 'Close the window' : 'Open the window'}</button></div>
       <div class="card" style="margin-top:14px"><h3>Backup</h3><p class="lead" style="margin:4px 0 8px">Download a copy of the people list and the main content. Keep it safe. Do this once a month.</p>
@@ -303,6 +306,7 @@
   }, async onClick(act, el) {
     const id = el.dataset.id;
     if (act === 'savenote') { await setting('note_text', $('#noteText').value); await setting('note_signed', $('#noteSigned').value); toast('Note saved'); await refresh(); }
+    else if (act === 'saveabout') { const v = $('#aboutText').value.trim(), orig = S.aboutText.join('\n\n'); await setting('about_text', v === orig ? '' : v); toast('About page saved'); await refresh(); }
     else if (act === 'togglepitch') { await setting('pitch_window_open', st.settings.pitch_window_open === 'true' ? 'false' : 'true'); toast('Updated'); await refresh(); }
     else if (act === 'code') {
       const { data, error } = await sb.rpc('make_claim_code', { p_person: id }); if (error) return toast(error.message);

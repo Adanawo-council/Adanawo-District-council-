@@ -16,7 +16,8 @@ window.SITE = {
   creditLine: 'Built and designed by AKUS ELEOJO FARIDA',
   aboutText: [
     'Adanawo District Council is the home of the Adanawo District of Ankpa: its leaders, its Gagos, its villages and its history, kept in one place for everyone.',
-    'The district is made up of Ikoja, Ojogobi and Adoche, with Emanyi as the Administrative Headquarters.'
+    'The district is made up of Ikoja, Ojogobi and Adoche, with Emanyi as the Administrative Headquarters.',
+    'The current Adanawo is HRH Chief Hon. Idris Ray Akus, the second District Head of Adanawo District. He followed the first District Head, the late HRH Abdulazeez Sani.'
   ],
 
   // ---- The community structures shown on the Leaders page ----
