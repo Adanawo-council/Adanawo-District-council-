@@ -36,7 +36,7 @@
     else if (P.f === 'member') l = l.filter((p) => p.category === 'member');
     if (q) l = l.filter((p) => (p.full_name + ' ' + (p.title || '') + ' ' + vname(p.village_id) + ' ' + (p.gago_area || '')).toLowerCase().includes(q));
     const order = { king: 0, district_head: 1, political: 2, council_officer: 3, gago: 4, member: 5 };
-    l = l.slice().sort((a, b) => (order[a.category] - order[b.category]) || (a.rank_order - b.rank_order) || a.full_name.localeCompare(b.full_name));
+    l = l.slice().sort((a, b) => (order[a.category] - order[b.category]) || (a.rank_order - b.rank_order) || String(a.created_at || '').localeCompare(String(b.created_at || '')) || a.full_name.localeCompare(b.full_name));
     const shown = l.slice(0, P.n);
     return `<p class="lead" style="margin:6px 0 8px">${l.length} ${l.length === 1 ? 'person' : 'people'}</p>` + (shown.map((p) => {
       const img = photoUrl(p.photo_path), sub = p.title || [vname(p.village_id), p.category === 'member' ? 'Member' : ''].filter(Boolean).join(' · ') || 'Member';
