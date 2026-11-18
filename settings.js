@@ -29,6 +29,9 @@ window.SITE = {
     { name: 'Adanawo Hunters Group', head: 'To be announced', role: '' }
   ],
 
+  // ---- Hall of Honour frames (name shown in the Admin office) ----
+  honourFrames: { gold: 'Gold', green: 'Green and gold', wood: 'Carved wood', memoriam: 'In memoriam' },
+
   // ---- Colours ----
   colors: {
     cream: '#F5EFE0', paper: '#FBF7EC', green: '#1E4D2B', greenDark: '#143520',
@@ -58,6 +61,7 @@ window.SITE = {
     <symbol id="ribbon" viewBox="0 0 24 24"><path d="M5 2 H19 V13 L12 9.5 L5 13 Z" fill="#C8921B"/><path d="M5 13 L12 9.5 L19 13 L19 22 L12 18.5 L5 22 Z" fill="#a87a14"/><path d="M8 5 H16" stroke="#F5EFE0" stroke-width="1.2" opacity=".7"/></symbol>
     <symbol id="seal" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#1E4D2B"/><circle cx="12" cy="12" r="8" fill="none" stroke="#C8921B" stroke-width="1"/><path d="M12 6.2 l1.7 3.6 3.9.5-2.9 2.7.8 3.9L12 15l-3.5 1.9.8-3.9-2.9-2.7 3.9-.5Z" fill="#C8921B"/></symbol>
     <symbol id="wreath" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#1E4D2B"/><circle cx="12" cy="12" r="10" fill="none" stroke="#C8921B" stroke-width="1.4"/><path d="M5 15 C3.5 10 6 6 10 4.5 M19 15 C20.5 10 18 6 14 4.5" fill="none" stroke="#C8921B" stroke-width="1.5" stroke-linecap="round"/><path d="M12 7.4 l1.3 2.7 2.9.4-2.1 2 .5 2.9L12 14l-2.6 1.4.5-2.9-2.1-2 2.9-.4Z" fill="#F5EFE0"/></symbol>
+    <symbol id="wa" viewBox="0 0 24 24"><path d="M12 2.2a9.8 9.8 0 0 0-8.4 14.8L2.2 21.8l4.9-1.3A9.8 9.8 0 1 0 12 2.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.6 7.8c.3-.5.8-.4 1 .1l.7 1.6c.1.3 0 .6-.2.8l-.5.6c.8 1.5 1.9 2.5 3.4 3.3l.6-.6c.2-.2.5-.3.8-.2l1.6.8c.4.2.5.7.2 1.1-.6.8-1.6 1.2-2.6 1-2.8-.7-5.2-3.1-5.9-5.9-.1-.9.2-1.9.9-2.6z" fill="currentColor"/></symbol>
     <symbol id="logo" viewBox="0 0 64 64">
       <circle cx="32" cy="32" r="30" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <circle cx="32" cy="12" r="4.6" fill="none" stroke="#C8921B" stroke-width="2.4"/>

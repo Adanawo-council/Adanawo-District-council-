@@ -63,7 +63,8 @@
     return `<a class="card person plink mark-${esc(p.mark)}" href="#/profile/${p.id}"><div class="photo">${img ? `<img src="${esc(img)}" alt="${esc(p.full_name)}" loading="lazy">` : ico('person', 'p')}${badge}</div>
       <h3>${esc(p.full_name)}</h3><p class="pt">${esc(p.title || '')}</p>${p.office ? `<p class="off">${esc(p.office)}</p>` : ''}${p.is_late ? '<p class="late">Late</p>' : ''}</a>`;
   }
-  Object.assign(APP, { personCard });
+  const waButton = (url, label) => `<a class="btn wa" href="${esc(url)}" target="_blank" rel="noopener">${ico('wa')} ${esc(label)}</a>`;
+  Object.assign(APP, { personCard, waButton });
 
   // ---------- data ----------
   async function loadPublic() {
@@ -99,12 +100,12 @@
       <button class="btn" data-act="google" style="width:100%">Continue with Google</button>
       <details class="card" style="margin-top:14px"><summary><b>Use email and password instead</b></summary>
         <label for="siEmail">Email</label><input type="text" id="siEmail" inputmode="email" autocapitalize="none" autocomplete="username">
-        <label for="siPass">Password</label><input type="password" id="siPass" autocomplete="current-password">
+        <label for="siPass">Password</label><input type="password" id="siPass" autocomplete="current-password" name="password">
         <div class="row"><button class="btn" data-act="pwin">Sign in</button></div>
         <hr style="border:0;border-top:1px dashed #d9cda8;margin:16px 0"><b>New here?</b>
-        <label for="siName">Your name</label><input type="text" id="siName">
+        <label for="siName">Your name</label><input type="text" id="siName" autocomplete="name">
         <div class="row"><button class="btn alt" data-act="pwup">Create my account</button></div>
-        <small>At least 6 characters for the password. If you forget it, message the palace with the "Report any technical issue" button.</small></details>
+        <small>At least 6 characters for the password. Please always sign in the same way you first did (Google, or email and password), so that you keep one profile. If you forget your password, message the palace with the "Report any technical issue" button.</small></details>
       <div class="row"><button class="btn alt" data-close="1">Close</button></div>`);
   }
   async function pwAuth(kind) {
@@ -197,7 +198,7 @@
     const liveBar = (live.data || []).map((m) => `<a class="livebar" href="#/meetings"><span class="dot"></span> Live now: ${esc(m.title)}</a>`).join('');
     return `<section class="hero">${ico('palm', 'palms l')}${ico('palm', 'palms r')}<h1>${esc(S.name)}</h1><span class="motto">${esc(S.motto)}</span><div class="bandline"></div></section>
       ${liveBar}${note ? `<section class="note"><p>${esc(note)}</p><small>${esc(st.settings.note_signed || '')}</small></section>` : ''}${claim}
-      <section class="section"><h2>${ico('calabash')} Announcements</h2><p class="lead">Words from the Onu Ankpa, the Eje and the Adanawo.</p>
+      <section class="section"><h2>${ico('calabash')} Announcements</h2><p class="lead">Words from the Ejeh, the Onu Ankpa and the Adanawo.</p>
         ${canAnn ? composer('announcement', 'New announcement') : ''}${await postBlocks(an.data || [])}</section>
       <section class="section"><h2>${ico('ribbon')} From the leaders</h2><p class="lead">Notices from Gagos and other leaders. Everyone can comment and like.</p>
         ${st.user ? (canLead ? composer('leader_post', 'New notice') : '') + await postBlocks(lp.data || []) : needSignIn('Sign in to read the notices from the leaders.')}</section>
@@ -216,13 +217,18 @@
   } };
 
   // ---------- Leaders ----------
-  PAGES.leaders = { view() {
+  PAGES.leaders = { async view() {
     const crown = st.people.filter((p) => ['king', 'district_head'].includes(p.category) && !p.is_past).sort(byRank);
     const pol = st.people.filter((p) => p.category === 'political').sort(byRank);
     const off = st.people.filter((p) => p.category === 'council_officer').sort(byRank);
     const past = st.people.filter((p) => p.is_past).sort(byRank);
     const grid = (l) => `<div class="people">${l.map(personCard).join('')}</div>`;
-    return `<section class="section" style="margin-top:6px"><h2>${ico('crown')} The Crown</h2><p class="lead">The Onu Ankpa, the Eje and the Adanawo.</p>${grid(crown)}</section>
+    let council = '';
+    if (has('owner', 'admin', 'crown', 'adanawo', 'leader', 'gago')) {
+      const r = await sb.from('private_links').select('url').eq('key', 'council').maybeSingle();
+      if (r.data && r.data.url) council = `<div class="card" style="margin-top:18px;text-align:center"><b>The Council group chat</b><p class="lead" style="margin:4px 0 10px">For the leaders of Adanawo. Tap to join the WhatsApp group.</p>${waButton(r.data.url, 'Join the Council WhatsApp group')}</div>`;
+    }
+    return `<section class="section" style="margin-top:6px"><h2>${ico('crown')} The Crown</h2><p class="lead">The Ejeh, the Onu Ankpa and the Adanawo.</p>${grid(crown)}</section>${council}
       ${pol.length ? `<section class="section"><h2>${ico('seal')} Political office holders</h2><p class="lead">Sons and daughters of Adanawo District in public office.</p>${grid(pol)}</section>` : ''}
       ${off.length ? `<section class="section"><h2>${ico('ribbon')} District Council officers</h2>${grid(off)}</section>` : ''}
       <section class="section"><h2>${ico('calabash')} Community structures</h2><p class="lead">The bodies that organise the life of Adanawo, and who leads them.</p>
@@ -267,11 +273,18 @@
   } };
 
   // ---------- Admin office ----------
+  const AD = { f: 'all', n: 60 };
   PAGES.admin = { async view() {
     if (!isAdmin()) return '<p class="empty">This part is only for the palace administrators.</p>';
-    const [sg, rp, gr, gm] = await Promise.all([has('owner') ? sb.from('suggestions').select('*').order('created_at', { ascending: false }).limit(30) : { data: [] },
+    const [sg, rp, gr, gm, lk] = await Promise.all([has('owner') ? sb.from('suggestions').select('*').order('created_at', { ascending: false }).limit(30) : { data: [] },
       sb.from('reports').select('*').eq('resolved', false).order('created_at', { ascending: false }).limit(30),
-      sb.from('groups').select('*').order('sort_order'), sb.from('group_members').select('*').eq('role', 'admin')]);
+      sb.from('groups').select('*').order('sort_order'), sb.from('group_members').select('*').eq('role', 'admin'), sb.from('private_links').select('*')]);
+    const link = (k) => ((lk.data || []).find((x) => x.key === k) || {}).url || '';
+    const linksCard = `<div class="card" style="margin-top:14px"><h3>WhatsApp group links</h3><p class="lead" style="margin:4px 0 8px">The youth link is shown to people who are signed in (on the Youth Day page). The council link is shown only to people with a post (on the Leaders page). Paste a new link here any time.</p>
+      <label for="lkYouth">Youth group link</label><input type="text" id="lkYouth" value="${esc(link('youth'))}" placeholder="https://chat.whatsapp.com/...">
+      <label for="lkCouncil">Council group link</label><input type="text" id="lkCouncil" value="${esc(link('council'))}" placeholder="https://chat.whatsapp.com/...">
+      <div class="row"><button class="btn" data-act="savelinks">Save the links</button></div></div>`;
+    const honourCard = APP.adminHonour ? await APP.adminHonour() : '';
     const signed = st.people.filter((p) => p.user_id).sort((x, y) => x.full_name.localeCompare(y.full_name));
     const leadersCard = `<div class="card" style="margin-top:14px"><h3>Group leaders</h3><p class="lead" style="margin:4px 0 8px">Each group leader approves who joins their group. The leader must have signed in once.</p>
       ${(gr.data || []).map((g) => { const ls = (gm.data || []).filter((m) => m.group_id === g.id);
@@ -288,21 +301,33 @@
         <button class="btn ${open ? 'alt' : ''}" data-act="togglepitch">${open ? 'Close the window' : 'Open the window'}</button></div>
       <div class="card" style="margin-top:14px"><h3>Backup</h3><p class="lead" style="margin:4px 0 8px">Download a copy of the people list and the main content. Keep it safe. Do this once a month.</p>
         <div class="row" style="margin:0"><button class="btn alt" data-act="bkcsv">People list (spreadsheet)</button><button class="btn alt" data-act="bkjson">Everything (backup file)</button></div></div>
+      ${honourCard}
+      ${linksCard}
       ${leadersCard}
-      <div class="card" style="margin-top:14px"><h3>People</h3><p class="lead" style="margin:4px 0 8px">Search a person. Make a code so they can claim their profile, add their picture, or give them a role.</p>
-        <input type="search" id="pSearch" placeholder="Search by name or place"><div id="pList"></div></div>
+      <div class="card" style="margin-top:14px"><h3>People</h3><p class="lead" style="margin:4px 0 8px">Everyone with a profile is listed here. Make a code so a leader can claim their profile, add a picture, or give a role. A stray member account (for example a duplicate) can be removed.</p>
+        <input type="search" id="pSearch" placeholder="Search by name or place">
+        <div class="gtabs" id="pTabs" style="margin:10px 0 4px">${[['all', 'Everyone'], ['unclaimed', 'Waiting for a code'], ['crown', 'The Crown'], ['officer', 'Council officers'], ['political', 'Office holders'], ['gago', 'Gagos'], ['member', 'Members']].map(([k, t]) => `<button type="button" data-f="${k}" class="${k === AD.f ? 'on' : ''}">${t}</button>`).join('')}</div>
+        <div id="pList"></div></div>
       ${(rp.data || []).length ? `<div class="card" style="margin-top:14px"><h3>Reports</h3>${rp.data.map((r) => `<div class="admin-row"><div><b>${esc(r.target_type)}</b><small>${esc(r.reason || '')} · ${fmtDate(r.created_at)}</small></div><div class="row" style="margin:0"><button class="btn small" data-act="hide" data-id="${r.id}" data-type="${esc(r.target_type)}" data-target="${r.target_id}">Hide it</button><button class="btn alt small" data-act="dismiss" data-id="${r.id}">Dismiss</button></div></div>`).join('')}</div>` : ''}
       ${has('owner') ? `<div class="card" style="margin-top:14px"><h3>Suggestions</h3>${(sg.data || []).map((s) => `<div class="admin-row"><div><b>${esc(s.body)}</b><small>${esc(nameOf(s.author_id))} · ${fmtDate(s.created_at)} · ${esc(s.status)}</small></div><button class="btn alt small" data-act="sugdone" data-id="${s.id}">Done</button></div>`).join('') || '<p class="empty">No suggestions yet.</p>'}</div>` : ''}</section>`;
   }, bind() {
     const list = $('#pList'); if (!list) return;
+    const ORDERC = { king: 0, district_head: 1, political: 2, council_officer: 3, gago: 4, member: 5 };
+    const inF = (p) => AD.f === 'all' || (AD.f === 'unclaimed' && !p.user_id && p.category !== 'member') || (AD.f === 'crown' && ['king', 'district_head'].includes(p.category))
+      || (AD.f === 'officer' && p.category === 'council_officer') || (AD.f === 'political' && p.category === 'political') || (AD.f === 'gago' && p.category === 'gago') || (AD.f === 'member' && p.category === 'member');
     const draw = () => {
       const q = ($('#pSearch').value || '').toLowerCase().trim();
-      let ps = st.people.filter((p) => p.category !== 'member' || p.user_id);
-      ps = q ? ps.filter((p) => (p.full_name + ' ' + (p.title || '') + ' ' + (p.gago_area || '')).toLowerCase().includes(q)) : ps.filter((p) => p.needs_review || ['king', 'district_head'].includes(p.category));
-      list.innerHTML = ps.sort(byRank).slice(0, 40).map((p) => `<div class="admin-row"><div><b>${esc(p.full_name)}</b><small>${esc(p.title || '')}${p.user_id ? ' · signed in' : ''}</small>${p.needs_review ? '<small class="flag">Please check this entry</small>' : ''}</div>
-        <div class="row" style="margin:0"><button class="btn alt small" data-act="editp" data-id="${p.id}">Edit</button><button class="btn alt small" data-act="photoFor" data-id="${p.id}">Picture</button>${p.user_id ? `<button class="btn alt small" data-act="role" data-id="${p.user_id}" data-role="elder">Elder</button>${has('owner') ? `<button class="btn alt small" data-act="role" data-id="${p.user_id}" data-role="admin">Admin</button>` : ''}` : `<button class="btn small" data-act="code" data-id="${p.id}">Make code</button>`}${p.needs_review ? `<button class="btn alt small" data-act="checked" data-id="${p.id}">Checked</button>` : ''}</div></div>`).join('') || '<p class="empty">Nothing to show. Try a search.</p>';
+      let ps = st.people.filter((p) => (p.category !== 'member' || p.user_id) && inF(p));
+      if (q) ps = ps.filter((p) => (p.full_name + ' ' + (p.title || '') + ' ' + (p.gago_area || '')).toLowerCase().includes(q));
+      ps.sort((a, b) => (ORDERC[a.category] - ORDERC[b.category]) || byRank(a, b));
+      const shown = ps.slice(0, AD.n);
+      list.innerHTML = `<p class="lead" style="margin:6px 0">${ps.length} ${ps.length === 1 ? 'person' : 'people'}</p>` + (shown.map((p) => `<div class="admin-row"><div><b>${esc(p.full_name)}</b><small>${esc(p.title || (p.category === 'member' ? 'Member' : ''))}${p.user_id ? ' · signed in' : ''}</small>${p.needs_review ? '<small class="flag">Please check this entry</small>' : ''}</div>
+        <div class="row" style="margin:0"><button class="btn alt small" data-act="editp" data-id="${p.id}">Edit</button><button class="btn alt small" data-act="photoFor" data-id="${p.id}">Picture</button>${p.user_id ? `<button class="btn alt small" data-act="role" data-id="${p.user_id}" data-role="elder">Elder</button>${has('owner') ? `<button class="btn alt small" data-act="role" data-id="${p.user_id}" data-role="admin">Admin</button>` : ''}` : `<button class="btn small" data-act="code" data-id="${p.id}">Make code</button>`}${p.needs_review ? `<button class="btn alt small" data-act="checked" data-id="${p.id}">Checked</button>` : ''}${p.category === 'member' && p.user_id !== (st.user && st.user.id) ? `<button class="btn alt small" data-act="rmmember" data-id="${p.id}">Remove account</button>` : ''}</div></div>`).join('') || '<p class="empty">Nobody matches.</p>')
+        + (ps.length > AD.n ? '<div class="row" style="justify-content:center"><button class="btn alt" type="button" id="pMore">Show more</button></div>' : '');
+      const more = $('#pMore'); if (more) more.onclick = () => { AD.n += 60; draw(); };
     };
-    draw(); $('#pSearch').oninput = draw; PAGES.admin.draw = draw;
+    draw(); $('#pSearch').oninput = () => { AD.n = 60; draw(); }; PAGES.admin.draw = draw;
+    $('#pTabs').onclick = (e) => { const b = e.target.closest('button[data-f]'); if (!b) return; AD.f = b.dataset.f; AD.n = 60; $('#pTabs').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); draw(); };
   }, async onClick(act, el) {
     const id = el.dataset.id;
     if (act === 'savenote') { await setting('note_text', $('#noteText').value); await setting('note_signed', $('#noteSigned').value); toast('Note saved'); await refresh(); }
@@ -344,6 +369,14 @@
       const row = { full_name: $('#epName').value.trim(), title: $('#epTitle').value.trim() || null, village_id: vid, area_id: v ? v.area_id : null, gago_area: $('#epArea').value.trim() || null, appointed_on: $('#epDate').value || null };
       if (!row.full_name) return toast('The name cannot be empty'); const { error } = await sb.from('people').update(row).eq('id', id); if (error) return toast(error.message);
       closeModal(); toast('Saved'); await refresh(); }
+    else if (act === 'savelinks') {
+      const rows = [['youth', $('#lkYouth').value.trim()], ['council', $('#lkCouncil').value.trim()]];
+      for (const [key, url] of rows) { if (url && !/^https:\/\/chat\.whatsapp\.com\//i.test(url)) return toast('A WhatsApp group link starts with https://chat.whatsapp.com/'); }
+      for (const [key, url] of rows) { const { error } = await sb.from('private_links').upsert({ key, url, updated_at: new Date().toISOString() }); if (error) return toast(error.message); }
+      toast('Links saved'); }
+    else if (act === 'rmmember') { const p = st.people.find((x) => x.id === id);
+      if (!confirm(`Remove ${p.full_name} completely? Their profile, posts and sign-in account will be deleted. This cannot be undone.`)) return;
+      const { error } = await sb.rpc('remove_member', { p_person: id }); if (error) return toast(error.message); toast('Removed'); await refresh(); }
     else if (act === 'sugdone') { await sb.from('suggestions').update({ status: 'done' }).eq('id', id); await render(true); }
   } };
 
@@ -352,7 +385,7 @@
   async function render(keepScroll) {
     const my = ++busy, y = window.scrollY;
     const parts = (location.hash.replace(/^#\//, '') || 'home').split('?')[0].split('/'); let cur = parts[0]; APP.arg = parts[1] || null; if (!PAGES[cur]) cur = 'home';
-    const ORDER = ['home', 'leaders', 'places', 'people', 'history', 'alo', 'meetings', 'groups', 'youth', 'markets', 'about', 'me', 'admin'];
+    const ORDER = ['home', 'leaders', 'honour', 'places', 'people', 'history', 'alo', 'meetings', 'groups', 'youth', 'markets', 'about', 'me', 'admin'];
     const items = ORDER.filter((k) => PAGES[k] && PAGES[k].label && (!PAGES[k].when || PAGES[k].when())).map((k) => [k, PAGES[k].label]);
     $('#nav').innerHTML = items.map(([k, l]) => `<a href="#/${k}" class="${k === cur ? 'on' : ''}">${esc(l)}</a>`).join('');
     renderAuth();
