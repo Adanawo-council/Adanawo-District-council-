@@ -30,7 +30,7 @@
   const photoUrl = (p) => (p ? sb.storage.from('photos').getPublicUrl(p).data.publicUrl : null);
   const personByUser = (uid) => st.people.find((p) => p.user_id === uid);
   const nameOf = (uid) => (personByUser(uid) || {}).full_name || 'A member';
-  const authorOf = (p) => { const x = personByUser(p.author_id); return x ? `<a href="#/profile/${x.id}">${esc(x.full_name)}</a>` : (p.kind === 'announcement' ? 'The Palace' : 'A member'); };
+  const authorOf = (p) => { const x = personByUser(p.author_id); const m = x && S.marks[x.mark]; const mk = m && (m.icon || m.crown) ? `<span class="authmark" title="${esc(m.label)}">${ico(m.crown ? 'crown' : m.icon)}</span>` : ''; return x ? `${mk}<a href="#/profile/${x.id}">${esc(x.full_name)}</a>${x.title && x.category !== 'member' ? ` <span class="authtitle">· ${esc(x.title)}</span>` : ''}` : (p.kind === 'announcement' ? 'The Palace' : 'A member'); };
   Object.assign(APP, { photoUrl, personByUser, nameOf });
 
   // pick a picture, shrink it (keeps the free storage small), upload it, give back its path
@@ -141,7 +141,7 @@
         ${p.talent ? `<p class="meta"><b>Talent:</b> ${esc(p.talent)}</p>` : ''}${img ? `<img class="pic" src="${esc(img)}" alt="" loading="lazy">` : ''}
         <p>${esc(p.body)}</p>${p.support_needed ? `<p class="meta"><b>Support needed:</b> ${esc(p.support_needed)}</p>` : ''}
         <small>${authorOf(p)} · ${fmtDate(p.created_at)}</small>
-        <div class="acts"><button class="lk ${mine ? 'on' : ''}" data-act="like" data-id="${p.id}" data-on="${mine ? 1 : 0}">♥ ${l.length}</button>
+        <div class="acts"><button class="lk ${mine ? 'on' : ''}" data-act="like" data-id="${p.id}" data-on="${mine ? 1 : 0}">♥ ${l.length}</button>${st.user && l.length ? `<button data-act="likers" data-id="${p.id}">Who liked</button>` : ''}
           ${p.comments_open && st.user ? `<button data-act="comments" data-id="${p.id}">Comments (${cs.length})</button>` : ''}
           ${own || isAdmin() ? `<button data-act="delpost" data-id="${p.id}">Delete</button>` : (st.user ? `<button data-act="report" data-type="post" data-id="${p.id}">Report</button>` : '')}</div>
         <div class="cbox" id="cb-${p.id}" hidden>${cs.map((c) => `<div class="cm"><b>${esc(nameOf(c.author_id))}</b> ${esc(c.body)}${st.user && (c.author_id === st.user.id || isAdmin()) ? ` <a href="#" data-act="delcomment" data-id="${c.id}">remove</a>` : ''}</div>`).join('')}
@@ -163,6 +163,11 @@
       if (act === 'support') return openSupport();
       if (!st.user && ['like', 'sendcomment', 'report'].includes(act)) return toast('Please sign in first');
       if (act === 'comments') { const b = $('#cb-' + id); b.hidden = !b.hidden; return; }
+      if (act === 'likers') {
+        const { data } = await sb.from('likes').select('user_id, created_at').eq('post_id', id).order('created_at');
+        const rows = (data || []).map((x) => { const p = st.people.find((q) => q.user_id === x.user_id); return p ? `<div class="admin-row"><a href="#/profile/${p.id}" data-close="1"><b>${esc(p.full_name)}</b></a><small>${esc(p.title || '')}</small></div>` : '<div class="admin-row"><b>A member</b></div>'; }).join('');
+        return openModal(`<h2>Liked by ${(data || []).length} ${(data || []).length === 1 ? 'person' : 'people'}</h2>${rows || '<p class="empty">No likes yet.</p>'}<div class="row"><button class="btn alt" data-close="1">Close</button></div>`);
+      }
       if (act === 'like') r = el.dataset.on === '1' ? await sb.from('likes').delete().eq('post_id', id).eq('user_id', st.user.id) : await sb.from('likes').insert({ post_id: id, user_id: st.user.id });
       else if (act === 'sendcomment') { const v = $('#ci-' + id).value.trim(); if (!v) return; r = await sb.from('comments').insert({ post_id: id, author_id: st.user.id, body: v }); }
       else if (act === 'delcomment') { e.preventDefault(); r = await sb.from('comments').delete().eq('id', id); }
@@ -183,27 +188,46 @@
   }
 
   // ---------- Home ----------
+  const HM = { photo: null, tab: 'all', n: 30 };
   PAGES.home = { async view() {
     const note = (st.settings.note_text || '').trim();
-    const [an, lp, live] = await Promise.all([
-      sb.from('posts').select('*').eq('kind', 'announcement').eq('hidden', false).order('created_at', { ascending: false }).limit(5),
-      sb.from('posts').select('*').eq('kind', 'leader_post').eq('hidden', false).order('created_at', { ascending: false }).limit(5),
+    const [feed, live] = await Promise.all([
+      st.user ? sb.from('posts').select('*').in('kind', ['announcement', 'leader_post', 'community']).eq('hidden', false).order('created_at', { ascending: false }).limit(150)
+        : sb.from('posts').select('*').eq('kind', 'announcement').eq('hidden', false).order('created_at', { ascending: false }).limit(30),
       sb.from('meetings').select('*').eq('is_live', true)]);
+    HM.photo = null;
     const canAnn = has('owner', 'admin', 'crown', 'adanawo'), canLead = has('owner', 'admin', 'crown', 'adanawo', 'leader', 'gago');
-    const composer = (kind, label) => `<div class="card" style="margin-bottom:14px"><label>${label}</label><input type="text" id="t-${kind}" placeholder="Title (optional)">
-      <textarea id="b-${kind}" placeholder="Write here" style="margin-top:8px"></textarea><div class="row"><button class="btn" data-act="newpost" data-kind="${kind}">Post</button></div></div>`;
+    const all = feed.data || [], ann = all.filter((p) => p.kind === 'announcement');
+    let list;
+    if (!st.user) list = ann;
+    else if (HM.tab === 'leaders') list = all.filter((p) => p.kind !== 'community');
+    else if (HM.tab === 'community') list = all.filter((p) => p.kind === 'community');
+    else { const pin = ann.slice(0, 3); list = [...pin, ...all.filter((p) => !pin.includes(p))]; }
+    const shown = list.slice(0, HM.n);
     const claim = st.user && st.me && st.me.category === 'member' && !st.roles.length ? `<div class="card" style="margin-top:22px"><h3>Are you a leader of Adanawo?</h3>
       <p class="lead" style="margin:6px 0 10px">If the palace gave you a code, enter it once to claim your profile. Everyone else can ignore this.</p>
       <input type="text" id="claimCode" placeholder="Your code" autocapitalize="characters" style="max-width:240px"><div class="row"><button class="btn" data-act="claim">Claim my profile</button></div></div>` : '';
+    const write = st.user ? `<div class="card write"><b>Write a post</b>
+      <textarea id="b-community" placeholder="${canLead ? 'Write a notice or a post for the people of Adanawo' : 'What would you like to tell the people of Adanawo?'}" style="margin-top:8px"></textarea>
+      <div class="row"><button class="btn alt small" data-act="cphoto" id="cph">Add a picture (optional)</button><button class="btn" data-act="cpost">Post</button></div>
+      ${canAnn ? `<details style="margin-top:8px"><summary><b>Write an announcement</b> (shown in bold to everyone)</summary><input type="text" id="t-announcement" placeholder="Title (optional)" style="margin-top:8px"><textarea id="b-announcement" placeholder="Write the announcement" style="margin-top:8px"></textarea><div class="row"><button class="btn" data-act="newpost" data-kind="announcement">Post the announcement</button></div></details>` : ''}</div>`
+      : `<div class="card write" style="text-align:center"><b>Write a post</b><p class="lead" style="margin:4px 0 10px">Sign in to write a post that all the people of Adanawo can read, and to like and comment.</p><button class="btn" data-act="signin">Sign in</button></div>`;
+    const tabs = st.user ? `<div class="gtabs" id="hmTabs">${[['all', 'Everyone'], ['leaders', 'Leaders and palace'], ['community', 'Community']].map(([k, t]) => `<button type="button" class="${HM.tab === k ? 'on' : ''}" data-act="hmtab" data-tab="${k}">${t}</button>`).join('')}</div>` : '';
     const liveBar = (live.data || []).map((m) => `<a class="livebar" href="#/meetings"><span class="dot"></span> Live now: ${esc(m.title)}</a>`).join('');
     return `<section class="hero">${ico('palm', 'palms l')}${ico('palm', 'palms r')}<h1>${esc(S.name)}</h1><span class="motto">${esc(S.motto)}</span><div class="bandline"></div></section>
-      ${liveBar}${note ? `<section class="note"><p>${esc(note)}</p><small>${esc(st.settings.note_signed || '')}</small></section>` : ''}${claim}
-      <section class="section"><h2>${ico('calabash')} Announcements</h2><p class="lead">Words from the Ejeh, the Onu Ankpa and the Adanawo.</p>
-        ${canAnn ? composer('announcement', 'New announcement') : ''}${await postBlocks(an.data || [])}</section>
-      <section class="section"><h2>${ico('ribbon')} From the leaders</h2><p class="lead">Notices from Gagos and other leaders. Everyone can comment and like.</p>
-        ${st.user ? (canLead ? composer('leader_post', 'New notice') : '') + await postBlocks(lp.data || []) : needSignIn('Sign in to read the notices from the leaders.')}</section>
+      ${liveBar}${note ? `<section class="note"><p>${esc(note)}</p><small>${esc(st.settings.note_signed || '')}</small></section>` : ''}${write}${claim}
+      <section class="section"><h2>${ico('calabash')} ${st.user ? 'The latest' : 'Announcements'}</h2><p class="lead">${st.user ? 'Words from the Ejeh, the Onu Ankpa and the Adanawo, notices from the leaders, and posts from the people of Adanawo. Everyone can like and comment.' : 'Words from the Ejeh, the Onu Ankpa and the Adanawo.'}</p>
+        ${tabs}${await postBlocks(shown)}${list.length > shown.length ? '<div class="row" style="justify-content:center"><button class="btn alt" data-act="hmmore">Show more</button></div>' : ''}</section>
       <div class="support"><button class="btn" data-act="support">${esc(S.supportLabel)}</button></div>`;
   }, async onClick(act, el) {
+    if (act === 'hmtab') { HM.tab = el.dataset.tab; HM.n = 30; return true; }
+    if (act === 'hmmore') { HM.n += 30; return true; }
+    if (act === 'cphoto') { const p = await choosePhoto(1100); if (p) { HM.photo = p; $('#cph').textContent = 'Picture added. Change it'; } return; }
+    if (act === 'cpost') {
+      const body = $('#b-community').value.trim(); if (!body) return toast('Write your message first');
+      const { error } = await APP.post({ kind: has('owner', 'admin', 'crown', 'adanawo', 'leader', 'gago') ? 'leader_post' : 'community', body, photo_path: HM.photo }); if (error) return toast(error.message);
+      HM.photo = null; toast('Posted'); return true;
+    }
     if (act === 'newpost') {
       const kind = el.dataset.kind, body = $('#b-' + kind).value.trim(); if (!body) return toast('Write the message first');
       const { error } = await APP.post({ kind, title: $('#t-' + kind).value.trim() || null, body }); if (error) return toast(error.message);
