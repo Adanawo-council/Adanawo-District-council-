@@ -196,3 +196,8 @@ details.howto ol{margin:8px 0;padding-left:20px}
 .f-memoriam .plate{background:#111;color:#ddd}
 .f-memoriam::after{content:"";position:absolute;top:0;right:0;width:46px;height:46px;background:linear-gradient(225deg,#000 50%,transparent 50%)}
 [hidden]{display:none!important}
+
+.authmark{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin-right:4px;color:var(--mustard)}
+.authmark svg{width:14px;height:14px}
+.authtitle{color:var(--soft)}
+.card.write{margin:16px 0}
